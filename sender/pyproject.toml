@@ -1,0 +1,12 @@
+[project]
+name = "sender"
+version = "0.1.0"
+description = "FastAPI sender service for Azure Storage Queue"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "azure-storage-queue>=12.10.0,<13.0.0",
+    "python-dotenv>=1.0.1,<2.0.0",
+    "fastapi>=0.115.0,<1.0.0",
+    "uvicorn[standard]>=0.30.0,<1.0.0",
+]

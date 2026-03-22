@@ -5,8 +5,8 @@ Thanks for your interest in improving Azure-QueueBridge.
 ## Development Setup
 
 1. Open a terminal in sender.
-2. Create and activate a virtual environment.
-3. Install dependencies from requirements.txt.
+2. Ensure uv is installed.
+3. Install dependencies with uv sync.
 4. Copy sender/.env.example to sender/.env and set local values.
 
 ## Contribution Guidelines

@@ -3,6 +3,7 @@
 #
 # Builds a lightweight container that runs the long-polling receiver worker.
 # The worker continuously reads messages from an Azure Storage Queue.
+# Dependencies are managed via pyproject.toml and installed with uv.
 # ---------------------------------------------------------------------------
 
 # Use the official slim Python 3.12 image (minimal OS footprint)
@@ -15,19 +16,25 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+# Install uv from the official container image
+COPY --from=ghcr.io/astral-sh/uv:0.8.17 /uv /bin/uv
+
 # Create a non-root user for security (don't run the app as root)
 RUN addgroup --system appgroup \
     && adduser --system --ingroup appgroup appuser
 
-# Install Python dependencies first (layer is cached unless requirements.txt changes)
-COPY requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy dependency metadata and install dependencies first for better layer caching
+COPY pyproject.toml README.md ./
+RUN uv sync --no-dev --no-install-project
 
 # Copy the application source code into the container
 COPY . ./
 
+# Install the local project into the environment after source copy
+RUN uv sync --no-dev
+
 # Switch to the non-root user before running the app
 USER appuser
 
-# Start the receiver worker directly with Python
-CMD ["python", "receiver_worker.py"]
+# Start the receiver worker from uv-managed virtual environment
+CMD [".venv/bin/python", "receiver_worker.py"]

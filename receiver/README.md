@@ -24,10 +24,8 @@ Optional:
 From this folder:
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-python receiver_worker.py
+uv sync
+uv run receiver_worker.py
 ```
 
 ## Run with Docker
@@ -35,7 +33,7 @@ python receiver_worker.py
 From repo root:
 
 ```powershell
-docker build -t stg-msg-queue-receiver:local -f src/receiver/Dockerfile src/receiver
+docker build -t stg-msg-queue-receiver:local -f receiver/Dockerfile receiver
 
-docker run --rm --env-file src/receiver/.env stg-msg-queue-receiver:local
+docker run --rm --env-file receiver/.env stg-msg-queue-receiver:local
 ```

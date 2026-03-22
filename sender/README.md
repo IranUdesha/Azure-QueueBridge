@@ -74,13 +74,13 @@ Runtime behavior in sender:
 ### Local Development Requirements
 
 1. Python 3.12+
-2. pip (Python package manager)
+2. uv (Python package and project manager)
 3. Azure Storage Account with Queue Storage enabled
 4. Network access from your machine/container to Azure Storage endpoint
 
 ### Python Dependencies
 
-Defined in requirements.txt:
+Defined in pyproject.toml:
 
 1. fastapi
 2. uvicorn[standard]
@@ -147,21 +147,19 @@ If AZURE_STORAGE_CONNECTION_STRING is not set, sender can build one from:
 From sender:
 
 ```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+uv sync
 ```
 
 Start API (option 1):
 
 ```powershell
-python sender_api.py
+uv run sender_api.py
 ```
 
 Start API (option 2):
 
 ```powershell
-python -m uvicorn sender_api:app --host 0.0.0.0 --port 8000
+uv run uvicorn sender_api:app --host 0.0.0.0 --port 8000
 ```
 
 ### Run With Docker
