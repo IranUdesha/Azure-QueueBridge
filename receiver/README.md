@@ -18,6 +18,8 @@ Optional:
 - `MAX_MESSAGES_PER_POLL`
 - `MAX_DEQUEUE_COUNT`
 - `LOG_LEVEL`
+- `LOG_FILE_PATH` (set with `LOG_FILE_NAME` to enable file logs)
+- `LOG_FILE_NAME` (set with `LOG_FILE_PATH` to enable file logs)
 
 ## Run locally
 

@@ -118,10 +118,28 @@ class AzureQueue:
     def delete_message(self, *, message_id: str, pop_receipt: str) -> None:
         """Permanently remove a message from the queue using its ID and pop receipt."""
         self._queue_client.delete_message(
-            message_id=message_id,     # Which message to delete
+            message=message_id,         # QueueClient expects the message ID as `message`
             pop_receipt=pop_receipt,    # Proof that we currently hold the lease on this message
             timeout=self._settings.azure_sdk_timeout_seconds,
         )
+        print(f"Message deleted: message_id={message_id}", flush=True)  # Visible in stdout/logs
+        logger.info(
+            "Message deleted",
+            extra={"message_id": message_id},
+        )
+
+
+    def extend_message_visibility(self, *, message_id: str, pop_receipt: str) -> str:
+        """Extend message invisibility by VISIBILITY_TIMEOUT_SECONDS and return the new pop receipt."""
+        updated = self._queue_client.update_message(
+            message=message_id,
+            pop_receipt=pop_receipt,
+            visibility_timeout=self._settings.visibility_timeout_seconds,
+            timeout=self._settings.azure_sdk_timeout_seconds,
+        )
+
+        # Azure rotates pop receipts after update_message; keep the latest for delete.
+        return str(getattr(updated, "pop_receipt", "") or pop_receipt)
 
     def to_received_message(self, msg: Any) -> ReceivedMessage:
         """Convert a raw SDK message object into our ReceivedMessage dataclass."""
@@ -144,11 +162,21 @@ class AzureQueue:
 
     def safe_delete(self, msg: Any) -> None:
         """Delete a message, catching and logging any Azure errors instead of raising."""
+        self.safe_delete_by_ref(message_id=msg.id, pop_receipt=msg.pop_receipt)
+
+    def safe_delete_by_ref(self, *, message_id: str, pop_receipt: str) -> None:
+        """Delete by message ID + pop receipt while swallowing recoverable SDK/runtime errors."""
         try:
-            self.delete_message(message_id=msg.id, pop_receipt=msg.pop_receipt)
+            self.delete_message(message_id=message_id, pop_receipt=pop_receipt)
         except AzureError:
             # Log the error but don't crash – the message will become visible again after the visibility timeout expires
             logger.exception(
                 "Failed to delete message",
-                extra={"queue": self._settings.queue_name, "message_id": getattr(msg, "id", "")},
+                extra={"queue": self._settings.queue_name, "message_id": message_id},
+            )
+        except Exception:
+            # Defensive guard so unexpected SDK/runtime errors don't terminate the long-running worker.
+            logger.exception(
+                "Unexpected error while deleting message",
+                extra={"queue": self._settings.queue_name, "message_id": message_id},
             )

@@ -33,6 +33,10 @@ COPY . ./
 # Install the local project into the environment after source copy
 RUN uv sync --no-dev
 
+# Ensure non-root runtime user can write log files under /app/logs
+RUN mkdir -p /app/logs \
+    && chown -R appuser:appgroup /app
+
 # Switch to the non-root user before running the app
 USER appuser
 
