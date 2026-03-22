@@ -19,6 +19,7 @@ env/
 # Local tooling
 .vscode/
 .idea/
+.qodo/
 
 # Test, lint, and coverage artifacts
 .pytest_cache/

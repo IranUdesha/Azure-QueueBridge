@@ -260,3 +260,13 @@ Expected response:
   "status": "ok"
 }
 ```
+
+## License
+
+This project is licensed under the MIT License.
+See LICENSE in the repository root for full text.
+
+## Security
+
+If you discover a vulnerability, do not post it publicly in issues.
+See SECURITY.md in the repository root for responsible disclosure guidance.
