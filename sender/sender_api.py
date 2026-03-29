@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = load_settings()                  # Read .env and return a validated Settings dataclass
-    configure_logging(settings.log_level)       # Set up logging with the configured level (e.g. INFO, DEBUG)
+    configure_logging(settings.log_level, settings.log_file_path, settings.log_file_name)   # Set up logging and optional file output
 
     app.state.settings = settings               # Store settings on app.state for access in route handlers
     app.state.queue = AzureQueue(settings)      # Initialize the Azure Queue client with connection string and retry policy

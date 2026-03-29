@@ -46,6 +46,8 @@ class Settings:
 
     # --- Logging ---
     log_level: str                      # Python log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    log_file_path: Optional[str]        # Optional directory where log file should be written
+    log_file_name: Optional[str]        # Optional log file name (e.g. sender.log)
 
     # --- API authentication ---
     api_key: str                        # Secret key callers must send in the request header
@@ -77,6 +79,10 @@ def load_settings(dotenv_path: Optional[str] = None) -> Settings:
     queue_name = _get_required("AZURE_STORAGE_QUEUE_NAME")
     _validate_queue_name(queue_name)  # Enforce Azure naming rules before making any SDK calls
 
+    log_file_path = _get_optional_str("LOG_FILE_PATH")
+    log_file_name = _get_optional_str("LOG_FILE_NAME")
+    _validate_log_file_settings(log_file_path=log_file_path, log_file_name=log_file_name)
+
     # Assemble validated Settings from env vars (with defaults and range checks)
     return Settings(
         connection_string=connection_string,
@@ -91,6 +97,8 @@ def load_settings(dotenv_path: Optional[str] = None) -> Settings:
         azure_sdk_retry_backoff_factor=_get_float("AZURE_SDK_RETRY_BACKOFF_FACTOR", default=0.8, min_value=0.0),
         azure_sdk_retry_backoff_max=_get_int("AZURE_SDK_RETRY_BACKOFF_MAX", default=30, min_value=0),
         log_level=os.getenv("LOG_LEVEL", "INFO"),
+        log_file_path=log_file_path,
+        log_file_name=log_file_name,
         api_key=_get_required("API_KEY"),                                                             # Must be set; no default
         api_key_header_name=os.getenv("API_KEY_HEADER_NAME", "X-API-Key"),                            # Configurable header name
     )
@@ -112,6 +120,15 @@ def _get_required(name: str) -> str:
     if value is None or value.strip() == "":
         raise ValueError(f"Missing required environment variable: {name}")
     return value
+
+
+def _get_optional_str(name: str) -> Optional[str]:
+    """Read an optional env var and return None when missing/blank."""
+    value = os.getenv(name)
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped or None
 
 
 def _get_int(
@@ -174,3 +191,9 @@ def _validate_queue_name(queue_name: str) -> None:
         )
     if "--" in queue_name:
         raise ValueError("AZURE_STORAGE_QUEUE_NAME cannot contain consecutive hyphens")
+
+
+def _validate_log_file_settings(*, log_file_path: Optional[str], log_file_name: Optional[str]) -> None:
+    """Require both LOG_FILE_PATH and LOG_FILE_NAME when file logging is enabled."""
+    if (log_file_path and not log_file_name) or (log_file_name and not log_file_path):
+        raise ValueError("LOG_FILE_PATH and LOG_FILE_NAME must be set together")

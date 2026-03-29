@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json                                          # Serialize/deserialize message payloads to JSON
 import logging                                       # Structured log output
+import time                                          # Used for retry delays when queue is being deleted
 from dataclasses import dataclass                    # Immutable data container for received messages
 from typing import Any, Dict, Iterable, Optional
 
@@ -19,6 +20,12 @@ from azure.storage.queue import QueueClient, QueueServiceClient    # Azure Queue
 from config.settings import Settings                 # Validated configuration loaded from .env
 
 logger = logging.getLogger(__name__)                 # Module-scoped logger
+
+# Maximum number of retries when Azure returns QueueBeingDeleted (409).
+# With exponential backoff starting at 2s (2+4+8+16+32 = 62s total wait),
+# this covers the ~30-second Azure purge window with margin.
+_QUEUE_BEING_DELETED_MAX_RETRIES = 5
+_QUEUE_BEING_DELETED_BASE_DELAY = 2  # seconds
 
 # ---------------------------------------------------------------------------
 # Workaround for Azure SDK bug:
@@ -75,13 +82,41 @@ class AzureQueue:
         self._queue_client: QueueClient = self._service_client.get_queue_client(settings.queue_name)
 
     def ensure_queue_exists(self) -> None:
-        """Create the queue in Azure if it doesn't already exist (idempotent)."""
-        try:
-            self._queue_client.create_queue(timeout=self._settings.azure_sdk_timeout_seconds)
-            logger.info("Queue created", extra={"queue": self._settings.queue_name})
-        except ResourceExistsError:
-            # Queue already exists – this is fine, just log and move on
-            logger.debug("Queue already exists", extra={"queue": self._settings.queue_name})
+        """Create the queue in Azure if it doesn't already exist (idempotent).
+
+        Handles the ``QueueBeingDeleted`` race condition: when a queue has been
+        recently deleted, Azure returns HTTP 409 for up to ~30 seconds while it
+        finishes purging.  This method retries with exponential backoff until
+        the queue can be recreated or the maximum number of retries is exhausted.
+        """
+        for attempt in range(_QUEUE_BEING_DELETED_MAX_RETRIES + 1):
+            try:
+                self._queue_client.create_queue(timeout=self._settings.azure_sdk_timeout_seconds)
+                logger.info("Queue created", extra={"queue": self._settings.queue_name})
+                return
+            except ResourceExistsError as exc:
+                error_code = getattr(exc, "error_code", None) or ""
+
+                if error_code == "QueueBeingDeleted":
+                    delay = _QUEUE_BEING_DELETED_BASE_DELAY * (2 ** attempt)
+                    logger.warning(
+                        "Queue is being deleted by Azure, retrying in %ds (attempt %d/%d)",
+                        delay, attempt + 1, _QUEUE_BEING_DELETED_MAX_RETRIES,
+                        extra={"queue": self._settings.queue_name},
+                    )
+                    if attempt < _QUEUE_BEING_DELETED_MAX_RETRIES:
+                        time.sleep(delay)
+                        continue
+                    # Exhausted all retries – re-raise so the caller knows
+                    raise RuntimeError(
+                        f"Queue '{self._settings.queue_name}' is still being deleted "
+                        f"after {_QUEUE_BEING_DELETED_MAX_RETRIES} retries. "
+                        "Please wait and try again."
+                    ) from exc
+
+                # Any other 409 means the queue already exists – that's fine
+                logger.debug("Queue already exists", extra={"queue": self._settings.queue_name})
+                return
 
     def send_json(self, payload: Dict[str, Any]) -> str:
         """Serialize a dict to JSON and send it to the queue. Returns the message ID."""
