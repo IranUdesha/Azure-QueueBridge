@@ -8,9 +8,9 @@ It provides a robust architecture for asynchronous processing by separating the 
 
 ```mermaid
 flowchart LR
-    Client[Client Application] -->|POST /messages| Sender[Sender API (FastAPI)]
-    Sender -->|Enqueue JSON| Queue[(Azure Storage Queue)]
-    Queue -->|Polls for messages| Receiver[Receiver Worker (Python)]
+    Client["Client Application"] -->|POST /messages| Sender["Sender API (FastAPI)"]
+    Sender -->|Enqueue JSON| Queue[("Azure Storage Queue")]
+    Queue -->|Polls for messages| Receiver["Receiver Worker (Python)"]
 ```
 
 The system is highly decoupled and consists of two primary, standalone components:
