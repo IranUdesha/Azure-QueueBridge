@@ -117,7 +117,8 @@ def main() -> int:
                     print("Order ID 1 received!", flush=True)
                     # Print the raw message content to stdout (visible in docker logs / terminal)
                     print(received.json_body, flush=True)
-                    
+                    logger.info("-----------------------------------------------")
+                    logger.info(" ")
                     # wait for 10 seconds to simulate processing time
                     time.sleep(10)
                     processed_successfully = True
